@@ -1,0 +1,20 @@
+{
+  "editor.tabSize": 4,
+  "editor.formatOnSave": true,
+  "[rust]": {
+    "editor.defaultFormatter": "rust-lang.rust-analyzer",
+  },
+  "explorer.fileNesting.enabled": true,
+  "explorer.fileNesting.expand": false,
+  "files.exclude": {
+    ".git": true,
+    "build": true,
+    "target": true,
+    "node_modules": true,
+  },
+  "explorer.fileNesting.patterns": {
+    "README.md": "LICENSE,.gitignore",
+    "package.json": "package-lock.json"
+    "Cargo.toml": "Cargo.lock"
+  },
+}

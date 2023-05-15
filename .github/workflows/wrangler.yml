@@ -6,17 +6,34 @@ on:
       - main
 
 jobs:
+  fmt:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+      - run: cargo fmt --all --check
+
+  clippy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+      - run: cargo clippy
+
   deploy:
+    needs: [fmt, clippy]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
       - name: deploy
-        uses: cloudflare/wrangler-action@2.0.0
+        uses: ker0olos/wrangler-action@fd7014c93bf431f847c3c5a33d0024e3791f397d
+        # env:
+        #   SECRET1: ${{ secrets.SECRET1 }}
         with:
           apiToken: ${{ secrets.CF_API_TOKEN }}
-          secrets: |
-            SECRET1
-            SECRET2
-        env:
-          SECRET1: ${{ secrets.SECRET1 }}
-          SECRET2: ${{ secrets.SECRET2 }}
+          # secrets: |
+          #   SECRET1

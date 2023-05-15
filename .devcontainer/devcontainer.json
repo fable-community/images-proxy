@@ -2,5 +2,14 @@
   "image": "mcr.microsoft.com/devcontainers/universal:2",
   "features": {
     "ghcr.io/devcontainers/features/rust:1": {}
-  }
+},
+"customizations": {
+	"vscode": {
+		"extensions": [
+			"rust-lang.rust-analyzer",
+			"tamasfe.even-better-toml",
+			"serayuzgur.crates"
+		]
+	}
+}
 }
