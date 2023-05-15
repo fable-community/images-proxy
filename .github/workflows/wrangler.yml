@@ -30,7 +30,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: deploy
-        uses: ker0olos/wrangler-action@fd7014c93bf431f847c3c5a33d0024e3791f397d
+        uses: ker0olos/wrangler-action@b11b972b44a5d7a5c5fff4b6f92d5ba11483c370
         # env:
         #   SECRET1: ${{ secrets.SECRET1 }}
         with:
