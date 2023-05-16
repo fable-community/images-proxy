@@ -1,5 +1,5 @@
 [package]
-name = "worker-rust"
+name = "images-proxy"
 version = "0.1.0"
 edition = "2021"
 
@@ -7,9 +7,18 @@ edition = "2021"
 crate-type = ["cdylib"]
 
 [dependencies]
-worker = "0.0.15"
+reqwest = "0.11"
+anyhow = "1.0.71"
+worker = "0.0.16"
+urlencoding = "2.1.2"
+image = { version = "0.24.6", default-features = false, features = [
+    "jpeg",
+    "png",
+    "webp",
+] }
 
 [profile.release]
 lto = true
 strip = true
 codegen-units = 1
+opt-level = "z"
