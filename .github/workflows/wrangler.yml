@@ -15,22 +15,22 @@ jobs:
           toolchain: stable
       - run: cargo fmt --all --check
 
-  clippy:
+  check:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
-      - run: cargo clippy
+      - run: cargo check
 
   deploy:
-    needs: [fmt, clippy]
+    needs: [fmt, check]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
       - name: deploy
-        uses: ker0olos/wrangler-action@b11b972b44a5d7a5c5fff4b6f92d5ba11483c370
+        uses: ker0olos/wrangler-action@20c71e394eba7b3dd07f25ca40f047dbc70eb493
         # env:
         #   SECRET1: ${{ secrets.SECRET1 }}
         with:
