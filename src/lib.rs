@@ -63,7 +63,7 @@ fn resize_fit_cover(image: DynamicImage, desired_width: u32, desired_height: u32
         &image,
         new_width,
         new_height,
-        image::imageops::FilterType::Nearest,
+        image::imageops::FilterType::Lanczos3,
     );
 
     image::imageops::crop(
@@ -126,6 +126,7 @@ async fn main(req: Request, _env: Env, _ctx: worker::Context) -> Result<Response
         .into_owned()
         .collect::<HashMap<String, String>>();
 
+    // TODO apply blur
     let _blur = hash_query.contains_key("blur");
 
     let size = match hash_query.get("size").and_then(|x| Some(x.as_str())) {
@@ -138,7 +139,7 @@ async fn main(req: Request, _env: Env, _ctx: worker::Context) -> Result<Response
     match fetch_image_resize(&req, size).await {
         Ok(image) => Ok(respond_with_image(image).unwrap()),
         Err(_) => {
-            // TODO
+            // TODO serve default images
             let image = image::RgbaImage::new(256, 256);
 
             Ok(respond_with_image(image).unwrap())
