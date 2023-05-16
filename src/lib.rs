@@ -4,7 +4,7 @@ use std::collections::HashMap;
 
 use anyhow::Context;
 
-use image::{DynamicImage, GenericImageView};
+use image::{DynamicImage, GenericImageView, RgbaImage};
 
 enum ImageSize {
     Preview,   // 64x64
@@ -44,14 +44,36 @@ async fn fetch_image(req: &Request) -> anyhow::Result<image::DynamicImage> {
     Ok(image)
 }
 
-fn resize_image_cover(
-    image: DynamicImage,
-    desired_width: u32,
-    desired_height: u32,
-) -> DynamicImage {
-    // TODO
+fn resize_fit_cover(image: DynamicImage, desired_width: u32, desired_height: u32) -> RgbaImage {
+    let (width, height) = image.dimensions();
 
-    image
+    let scale_factor = if desired_width / desired_height > width / height {
+        desired_width as f32 / width as f32
+    } else {
+        desired_height as f32 / height as f32
+    };
+
+    let new_width = (width as f32 * scale_factor) as u32;
+    let new_height = (height as f32 * scale_factor) as u32;
+
+    let crop_x = (new_width - desired_width) / 2;
+    let crop_y = (new_height - desired_height) / 2;
+
+    let mut resized_img = image::imageops::resize(
+        &image,
+        new_width,
+        new_height,
+        image::imageops::FilterType::Nearest,
+    );
+
+    image::imageops::crop(
+        &mut resized_img,
+        crop_x,
+        crop_y,
+        desired_width,
+        desired_height,
+    )
+    .to_image()
 }
 
 async fn fetch_image_resize(req: &Request, size: ImageSize) -> anyhow::Result<image::RgbaImage> {
@@ -64,31 +86,36 @@ async fn fetch_image_resize(req: &Request, size: ImageSize) -> anyhow::Result<im
         ImageSize::Large => (450, 635),
     };
 
-    let resized_image = resize_image_cover(image, width, height);
+    let resized_image = resize_fit_cover(image, width, height);
 
-    Ok(resized_image.into_rgba8())
+    Ok(resized_image)
 }
 
-fn respond_with_image(image: image::RgbaImage) -> Response {
+fn respond_with_image(image: image::RgbaImage) -> anyhow::Result<Response> {
     let mut buf = std::io::Cursor::new(Vec::new());
 
     let mut headers = Headers::new();
 
     image
         .write_to(&mut buf, image::ImageOutputFormat::Png)
-        .unwrap();
+        .context("failed to encode image to png")?;
 
     let data = buf.get_ref().clone();
 
-    headers.set("content-type", "image/png").unwrap();
+    match headers.set("content-type", "image/png") {
+        Ok(_) => (),
+        Err(_) => return Err(anyhow::anyhow!("failed to write content-type header")),
+    };
 
-    headers
-        .set("content-length", &data.len().to_string())
-        .unwrap();
+    match headers.set("content-length", &data.len().to_string()) {
+        Ok(_) => (),
+        Err(_) => return Err(anyhow::anyhow!("failed to write content-length header")),
+    };
 
-    Response::from_body(ResponseBody::Body(data))
-        .unwrap()
-        .with_headers(headers)
+    match Response::from_body(ResponseBody::Body(data)) {
+        Ok(response) => Ok(response.with_headers(headers)),
+        Err(_) => Err(anyhow::anyhow!("failed to write response body")),
+    }
 }
 
 #[event(fetch)]
@@ -109,12 +136,12 @@ async fn main(req: Request, _env: Env, _ctx: worker::Context) -> Result<Response
     };
 
     match fetch_image_resize(&req, size).await {
-        Ok(image) => Ok(respond_with_image(image)),
+        Ok(image) => Ok(respond_with_image(image).unwrap()),
         Err(_) => {
             // TODO
             let image = image::RgbaImage::new(256, 256);
 
-            Ok(respond_with_image(image))
+            Ok(respond_with_image(image).unwrap())
         }
     }
 }
