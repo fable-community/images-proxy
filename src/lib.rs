@@ -20,6 +20,20 @@ async fn fetch_image(req: &Request) -> anyhow::Result<image::DynamicImage> {
 
     let response = reqwest::get(url).await.context("failed to fetch image")?;
 
+    let content_type = response
+        .headers()
+        .get("Content-Type")
+        .and_then(|x| x.to_str().ok());
+
+    console_log!("{}, {:?}", response.status(), content_type);
+
+    match content_type {
+        Some("image/png") => (),
+        Some("image/jpeg") => (),
+        Some("image/webp") => (),
+        _ => return Err(anyhow::anyhow!("image type no allowed")),
+    }
+
     let image_data = response
         .bytes()
         .await

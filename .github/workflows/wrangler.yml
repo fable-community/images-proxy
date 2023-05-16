@@ -22,16 +22,14 @@ jobs:
       - run: cargo check
 
   deploy:
-    needs: [fmt, check]
     runs-on: ubuntu-latest
     if: github.ref_name == 'main'
+    environment: 
+      name: production
+      url: https://images-proxy.fables.workers.dev
     steps:
       - uses: actions/checkout@v2
-      - name: deploy
+      - name: Deploy to Cloudflare Workers
         uses: ker0olos/wrangler-action@79ab8d9ea54478069c2afe2bcaaa475514c9638d
-        # env:
-        #   SECRET1: ${{ secrets.SECRET1 }}
         with:
           apiToken: ${{ secrets.CF_API_TOKEN }}
-          # secrets: |
-          #   SECRET1

@@ -5,3 +5,5 @@
 ```sh
 npm run dev
 ```
+
+This service is used in [Fable](https://github.com/ker0olos/fable) to resize all characters and media images
