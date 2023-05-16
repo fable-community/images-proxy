@@ -76,7 +76,7 @@ fn resize_fit_cover(image: DynamicImage, desired_width: u32, desired_height: u32
     .to_image()
 }
 
-async fn fetch_image_resize(req: &Request, size: ImageSize) -> anyhow::Result<image::RgbaImage> {
+async fn fetch_image_resize(req: &Request, size: &ImageSize) -> anyhow::Result<image::RgbaImage> {
     let image = fetch_image(&req).await?;
 
     let (width, height) = match size {
@@ -136,11 +136,17 @@ async fn main(req: Request, _env: Env, _ctx: worker::Context) -> Result<Response
         _ => ImageSize::Large,
     };
 
-    match fetch_image_resize(&req, size).await {
+    match fetch_image_resize(&req, &size).await {
         Ok(image) => Ok(respond_with_image(image).unwrap()),
         Err(_) => {
-            // TODO serve default images
-            let image = image::RgbaImage::new(256, 256);
+            let default_image: &[u8] = match &size {
+                ImageSize::Preview | ImageSize::Thumbnail => {
+                    include_bytes!("../default/thumbnail.png")
+                }
+                _ => include_bytes!("../default/medium.png"),
+            };
+
+            let image = image::load_from_memory(default_image).unwrap().to_rgba8();
 
             Ok(respond_with_image(image).unwrap())
         }
