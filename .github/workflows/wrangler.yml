@@ -37,7 +37,7 @@ jobs:
           command: publish --env production
 
   deploy-to-preview:
-    name: deploy
+    name: preview
     runs-on: ubuntu-latest
     if: github.ref_name != 'main'
     environment: 
