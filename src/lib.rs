@@ -56,11 +56,19 @@ fn resize_fit_cover(image: DynamicImage, desired_width: u32, desired_height: u32
         desired_height as f32 / height as f32
     };
 
-    let new_width = (width as f32 * scale_factor) as u32;
-    let new_height = (height as f32 * scale_factor) as u32;
+    let new_width = std::cmp::max((width as f32 * scale_factor) as u32, desired_width);
+    let new_height = std::cmp::max((height as f32 * scale_factor) as u32, desired_height);
 
     let crop_x = (new_width - desired_width) / 2;
     let crop_y = (new_height - desired_height) / 2;
+
+    console_log!(
+        "{}, {}, {}, {}",
+        new_width,
+        new_height,
+        new_width as i32 - desired_width as i32,
+        new_height as i32 - desired_height as i32
+    );
 
     let mut resized_img = image::imageops::resize(
         &image,
@@ -146,7 +154,7 @@ async fn main(req: Request, _env: Env, _ctx: worker::Context) -> Result<Response
         _ => ImageSize::Large,
     };
 
-    // console_log!("size: {:?}, blur: {}", size, blur);
+    console_log!("size: {:?}, blur: {}", size, blur);
 
     match fetch_image_resize(&req, &size, blur).await {
         Ok(image) => Ok(respond_with_image(image).unwrap()),
