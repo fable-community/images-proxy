@@ -6,6 +6,7 @@ use anyhow::Context;
 
 use image::{DynamicImage, GenericImageView, RgbaImage};
 
+#[derive(Debug)]
 enum ImageSize {
     Preview,   // 64x64
     Thumbnail, // 110x155
@@ -17,6 +18,8 @@ async fn fetch_image(req: &Request) -> anyhow::Result<image::DynamicImage> {
     let url = urlencoding::decode(&req.path()[1..])
         .context("failed to decode url")?
         .to_string();
+
+    // TODO cache and load from cache
 
     let response = reqwest::get(url).await.context("failed to fetch image")?;
 
@@ -76,7 +79,11 @@ fn resize_fit_cover(image: DynamicImage, desired_width: u32, desired_height: u32
     .to_image()
 }
 
-async fn fetch_image_resize(req: &Request, size: &ImageSize) -> anyhow::Result<image::RgbaImage> {
+async fn fetch_image_resize(
+    req: &Request,
+    size: &ImageSize,
+    blur: bool,
+) -> anyhow::Result<image::RgbaImage> {
     let image = fetch_image(&req).await?;
 
     let (width, height) = match size {
@@ -88,7 +95,11 @@ async fn fetch_image_resize(req: &Request, size: &ImageSize) -> anyhow::Result<i
 
     let resized_image = resize_fit_cover(image, width, height);
 
-    Ok(resized_image)
+    if blur {
+        Ok(image::imageops::blur(&resized_image, 15.0))
+    } else {
+        Ok(resized_image)
+    }
 }
 
 fn respond_with_image(image: image::RgbaImage) -> anyhow::Result<Response> {
@@ -126,8 +137,7 @@ async fn main(req: Request, _env: Env, _ctx: worker::Context) -> Result<Response
         .into_owned()
         .collect::<HashMap<String, String>>();
 
-    // TODO apply blur
-    let _blur = hash_query.contains_key("blur");
+    let blur = hash_query.contains_key("blur");
 
     let size = match hash_query.get("size").and_then(|x| Some(x.as_str())) {
         Some("preview") => ImageSize::Preview,
@@ -136,7 +146,9 @@ async fn main(req: Request, _env: Env, _ctx: worker::Context) -> Result<Response
         _ => ImageSize::Large,
     };
 
-    match fetch_image_resize(&req, &size).await {
+    // console_log!("size: {:?}, blur: {}", size, blur);
+
+    match fetch_image_resize(&req, &size, blur).await {
         Ok(image) => Ok(respond_with_image(image).unwrap()),
         Err(_) => {
             let default_image: &[u8] = match &size {
