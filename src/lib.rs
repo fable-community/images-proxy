@@ -1,10 +1,7 @@
-use worker::*;
-
-use std::collections::HashMap;
-
 use anyhow::Context;
-
 use image::{DynamicImage, GenericImageView, RgbaImage};
+use std::collections::HashMap;
+use worker::*;
 
 #[derive(Debug)]
 enum ImageSize {
@@ -74,7 +71,7 @@ fn resize_fit_cover(image: DynamicImage, desired_width: u32, desired_height: u32
         &image,
         new_width,
         new_height,
-        image::imageops::FilterType::Lanczos3,
+        image::imageops::FilterType::Triangle,
     );
 
     image::imageops::crop(
