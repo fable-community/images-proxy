@@ -1,6 +1,29 @@
 {
   "tasks": {
     "build": "wasm-pack build --target deno --out-dir build",
-    "start": "deno run -A src/main.ts"
+    "watch": "cargo watch -w src/lib.rs -s \"deno task build\"",
+    "start": "deno run --watch -A src/main.ts"
+  },
+  "fmt": {
+    "useTabs": false,
+    "singleQuote": true,
+    "indentWidth": 2,
+    "include": ["src"]
+  },
+  "lint": {
+    "rules": {
+      "tags": ["recommended"],
+      "include": [
+        "prefer-ascii",
+        "camelcase",
+        "eqeqeq",
+        "no-const-assign",
+        "no-eval",
+        "no-non-null-assertion",
+        "no-throw-literal",
+        "no-sparse-arrays",
+        "explicit-function-return-type"
+      ]
+    }
   }
 }
