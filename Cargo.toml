@@ -3,6 +3,9 @@ name = "images-proxy"
 version = "0.1.0"
 edition = "2021"
 
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = false
+
 [lib]
 crate-type = ["cdylib"]
 
@@ -12,6 +15,7 @@ anyhow = "1.0.71"
 worker = "0.0.16"
 urlencoding = "2.1.2"
 fastblur = "0.1.1"
+fast_image_resize = "2.7.3"
 image = { version = "0.24.6", default-features = false, features = [
     "jpeg",
     "png",

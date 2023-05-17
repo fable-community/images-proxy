@@ -1,7 +1,7 @@
-use anyhow::Context;
+use fast_image_resize as fr;
 use fastblur::gaussian_blur;
 use image::{DynamicImage, GenericImageView, ImageBuffer, Rgb, RgbaImage};
-use std::collections::HashMap;
+use std::{collections::HashMap, num::NonZeroU32};
 use worker::*;
 
 #[derive(Debug)]
@@ -13,13 +13,11 @@ enum ImageSize {
 }
 
 async fn fetch_image(req: &Request) -> anyhow::Result<DynamicImage> {
-    let url = urlencoding::decode(&req.path()[1..])
-        .context("failed to decode url")?
-        .to_string();
+    let url = urlencoding::decode(&req.path()[1..])?.to_string();
 
     // TODO cache and load from cache
 
-    let response = reqwest::get(url).await.context("failed to fetch image")?;
+    let response = reqwest::get(url).await?;
 
     let content_type = response
         .headers()
@@ -35,17 +33,18 @@ async fn fetch_image(req: &Request) -> anyhow::Result<DynamicImage> {
         _ => return Err(anyhow::anyhow!("image type no allowed")),
     }
 
-    let image_data = response
-        .bytes()
-        .await
-        .context("failed to get image bytes")?;
+    let image_data = response.bytes().await?;
 
-    let image = image::load_from_memory(&image_data).context("failed to decode image")?;
+    let image = image::load_from_memory(&image_data)?;
 
     Ok(image)
 }
 
-fn resize_fit_cover(image: DynamicImage, desired_width: u32, desired_height: u32) -> RgbaImage {
+fn resize_fit_cover(
+    image: DynamicImage,
+    desired_width: u32,
+    desired_height: u32,
+) -> anyhow::Result<RgbaImage> {
     let (width, height) = image.dimensions();
 
     let scale_factor = if desired_width / desired_height > width / height {
@@ -68,21 +67,44 @@ fn resize_fit_cover(image: DynamicImage, desired_width: u32, desired_height: u32
         new_height as i32 - desired_height as i32
     );
 
-    let mut resized_img = image::imageops::resize(
-        &image,
-        new_width,
-        new_height,
-        image::imageops::FilterType::Triangle,
+    let mut src_image = fr::Image::from_vec_u8(
+        NonZeroU32::new(width).unwrap(),
+        NonZeroU32::new(height).unwrap(),
+        image.to_rgba8().into_raw(),
+        fr::PixelType::U8x4,
+    )?;
+
+    let alpha_mul_div = fr::MulDiv::default();
+
+    alpha_mul_div.multiply_alpha_inplace(&mut src_image.view_mut())?;
+
+    let mut dst_image = fr::Image::new(
+        NonZeroU32::new(new_width).unwrap(),
+        NonZeroU32::new(new_height).unwrap(),
+        src_image.pixel_type(),
     );
 
-    image::imageops::crop(
-        &mut resized_img,
+    let mut dst_view = dst_image.view_mut();
+
+    let mut resizer = fr::Resizer::new(fr::ResizeAlg::Convolution(fr::FilterType::Hamming));
+
+    resizer.resize(&src_image.view(), &mut dst_view)?;
+
+    alpha_mul_div.divide_alpha_inplace(&mut dst_view)?;
+
+    let image_buffer =
+        RgbaImage::from_raw(new_width, new_height, dst_image.buffer().to_vec()).unwrap();
+
+    let mut resized_dynamic_image = DynamicImage::ImageRgba8(image_buffer);
+
+    Ok(image::imageops::crop(
+        &mut resized_dynamic_image,
         crop_x,
         crop_y,
         desired_width,
         desired_height,
     )
-    .to_image()
+    .to_image())
 }
 
 async fn fetch_image_resize(
@@ -99,7 +121,7 @@ async fn fetch_image_resize(
         ImageSize::Large => (450, 635),
     };
 
-    let img = DynamicImage::ImageRgba8(resize_fit_cover(image, width, height));
+    let img = DynamicImage::ImageRgba8(resize_fit_cover(image, width, height)?);
 
     if blur {
         let (width, height) = img.dimensions();
@@ -131,9 +153,7 @@ fn respond_with_image(image: DynamicImage) -> anyhow::Result<Response> {
 
     let mut headers = Headers::new();
 
-    image
-        .write_to(&mut buf, image::ImageOutputFormat::Png)
-        .context("failed to encode image to png")?;
+    image.write_to(&mut buf, image::ImageOutputFormat::Png)?;
 
     let data = buf.get_ref().clone();
 
