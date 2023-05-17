@@ -1,5 +1,6 @@
 use anyhow::Context;
-use image::{DynamicImage, GenericImageView, RgbaImage};
+use fastblur::gaussian_blur;
+use image::{DynamicImage, GenericImageView, ImageBuffer, Rgb, RgbaImage};
 use std::collections::HashMap;
 use worker::*;
 
@@ -11,7 +12,7 @@ enum ImageSize {
     Large,     // 450x635,
 }
 
-async fn fetch_image(req: &Request) -> anyhow::Result<image::DynamicImage> {
+async fn fetch_image(req: &Request) -> anyhow::Result<DynamicImage> {
     let url = urlencoding::decode(&req.path()[1..])
         .context("failed to decode url")?
         .to_string();
@@ -88,7 +89,7 @@ async fn fetch_image_resize(
     req: &Request,
     size: &ImageSize,
     blur: bool,
-) -> anyhow::Result<image::RgbaImage> {
+) -> anyhow::Result<DynamicImage> {
     let image = fetch_image(&req).await?;
 
     let (width, height) = match size {
@@ -98,16 +99,34 @@ async fn fetch_image_resize(
         ImageSize::Large => (450, 635),
     };
 
-    let resized_image = resize_fit_cover(image, width, height);
+    let img = DynamicImage::ImageRgba8(resize_fit_cover(image, width, height));
 
     if blur {
-        Ok(image::imageops::blur(&resized_image, 15.0))
+        let (width, height) = img.dimensions();
+
+        let mut data: Vec<[u8; 3]> = img
+            .pixels()
+            .map(|(_, _, pixel)| {
+                let [r, g, b, _] = pixel.0;
+                [r, g, b]
+            })
+            .collect();
+
+        gaussian_blur(&mut data, width as usize, height as usize, 10.0);
+
+        let blurred_image: ImageBuffer<Rgb<u8>, Vec<u8>> =
+            ImageBuffer::from_fn(width, height, |x, y| {
+                let pixel = data[(y * width + x) as usize];
+                Rgb([pixel[0], pixel[1], pixel[2]])
+            });
+
+        Ok(DynamicImage::ImageRgb8(blurred_image))
     } else {
-        Ok(resized_image)
+        Ok(img)
     }
 }
 
-fn respond_with_image(image: image::RgbaImage) -> anyhow::Result<Response> {
+fn respond_with_image(image: DynamicImage) -> anyhow::Result<Response> {
     let mut buf = std::io::Cursor::new(Vec::new());
 
     let mut headers = Headers::new();
@@ -163,7 +182,7 @@ async fn main(req: Request, _env: Env, _ctx: worker::Context) -> Result<Response
                 _ => include_bytes!("../default/medium.png"),
             };
 
-            let image = image::load_from_memory(default_image).unwrap().to_rgba8();
+            let image = image::load_from_memory(default_image).unwrap();
 
             Ok(respond_with_image(image).unwrap())
         }
