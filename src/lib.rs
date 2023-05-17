@@ -17,8 +17,8 @@ enum ImageSize {
 
 #[derive(Debug)]
 enum ImageFormat {
-    PNG,
-    JPEG,
+    Png,
+    Jpeg,
 }
 
 #[wasm_bindgen]
@@ -46,8 +46,10 @@ async fn fetch_image(url: &Url) -> anyhow::Result<(DynamicImage, ImageFormat)> {
         .and_then(|x| x.to_str().ok());
 
     let format = match content_type {
-        Some("image/jpeg") => ImageFormat::JPEG,
-        Some("image/png") | Some("image/webp") => ImageFormat::PNG,
+        Some("image/jpeg") => ImageFormat::Jpeg,
+        // webp encoding is not supported while targting wasm
+        // all webp images will be convented to png
+        Some("image/png") | Some("image/webp") => ImageFormat::Png,
         Some(s) => return Err(anyhow::anyhow!(format!("image type {} no allowed", s))),
         None => return Err(anyhow::anyhow!("No content-type header")),
     };
@@ -142,7 +144,7 @@ async fn fetch_image_resize(
     size: &ImageSize,
     blur: bool,
 ) -> anyhow::Result<(DynamicImage, ImageFormat)> {
-    let (img, format) = fetch_image(&url).await?;
+    let (img, format) = fetch_image(url).await?;
 
     let (width, height) = match size {
         ImageSize::Preview => (64, 64),
@@ -173,7 +175,7 @@ async fn fetch_image_resize(
             Rgb([pixel[0], pixel[1], pixel[2]])
         });
 
-        Ok((DynamicImage::ImageRgb8(blurred), ImageFormat::JPEG))
+        Ok((DynamicImage::ImageRgb8(blurred), ImageFormat::Jpeg))
     } else {
         Ok((img, format))
     }
@@ -191,8 +193,8 @@ fn respond_with_image(image: DynamicImage, format: ImageFormat) -> anyhow::Resul
         .write_to(
             &mut buf,
             match format {
-                ImageFormat::PNG => image::ImageOutputFormat::Png,
-                ImageFormat::JPEG => image::ImageOutputFormat::Jpeg(80),
+                ImageFormat::Png => image::ImageOutputFormat::Png,
+                ImageFormat::Jpeg => image::ImageOutputFormat::Jpeg(80),
             },
         )
         .context("failed to encode resized image")?;
@@ -202,8 +204,8 @@ fn respond_with_image(image: DynamicImage, format: ImageFormat) -> anyhow::Resul
     match headers.set(
         "content-type",
         match format {
-            ImageFormat::PNG => "image/png",
-            ImageFormat::JPEG => "image/jpeg",
+            ImageFormat::Png => "image/png",
+            ImageFormat::Jpeg => "image/jpeg",
         },
     ) {
         Ok(_) => (),
@@ -240,7 +242,7 @@ pub async fn handler(request: Request) -> Response {
 
     let blur = hash_query.contains_key("blur");
 
-    let size = match hash_query.get("size").and_then(|x| Some(x.as_str())) {
+    let size = match hash_query.get("size").map(|x| x.as_str()) {
         Some("preview") => ImageSize::Preview,
         Some("thumbnail") => ImageSize::Thumbnail,
         Some("medium") => ImageSize::Medium,
@@ -263,7 +265,7 @@ pub async fn handler(request: Request) -> Response {
 
             respond_with_image(
                 image::load_from_memory(default_image).unwrap(),
-                ImageFormat::PNG,
+                ImageFormat::Png,
             )
             .unwrap()
         }
