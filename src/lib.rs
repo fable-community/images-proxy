@@ -15,6 +15,12 @@ enum ImageSize {
     Large,     // 450x635,
 }
 
+#[derive(Debug)]
+enum ImageFormat {
+    PNG,
+    JPEG,
+}
+
 #[wasm_bindgen]
 extern "C" {
     #[wasm_bindgen(js_namespace = console)]
@@ -25,7 +31,7 @@ macro_rules! console_log {
     ($($t:tt)*) => (log(&format_args!($($t)*).to_string()))
 }
 
-async fn fetch_image(url: &Url) -> anyhow::Result<DynamicImage> {
+async fn fetch_image(url: &Url) -> anyhow::Result<(DynamicImage, ImageFormat)> {
     let image_url = urlencoding::decode(&url.path()[1..])
         .context(format!("failed to decode url {}", url.path()))?
         .to_string();
@@ -39,25 +45,30 @@ async fn fetch_image(url: &Url) -> anyhow::Result<DynamicImage> {
         .get("Content-Type")
         .and_then(|x| x.to_str().ok());
 
-    console_log!("{}, {:?}, {}", response.status(), content_type, url.path());
-
-    match content_type {
-        Some("image/png") => (),
-        Some("image/jpeg") => (),
-        Some("image/webp") => (),
+    let format = match content_type {
+        Some("image/jpeg") => ImageFormat::JPEG,
+        Some("image/png") | Some("image/webp") => ImageFormat::PNG,
         Some(s) => return Err(anyhow::anyhow!(format!("image type {} no allowed", s))),
         None => return Err(anyhow::anyhow!("No content-type header")),
-    }
+    };
+
+    console_log!(
+        "{}, {:?}, {:?}, {}",
+        response.status(),
+        content_type,
+        format,
+        url.path()
+    );
 
     let image_data = response
         .bytes()
         .await
         .context("failed to convent response body to bytes")?;
 
-    let image =
+    let img =
         image::load_from_memory(&image_data).context("failed to laod image from response body")?;
 
-    Ok(image)
+    Ok((img, format))
 }
 
 fn resize_fit_cover(
@@ -112,13 +123,12 @@ fn resize_fit_cover(
 
     alpha_mul_div.divide_alpha_inplace(&mut dst_view)?;
 
-    let image_buffer =
-        RgbaImage::from_raw(new_width, new_height, dst_image.buffer().to_vec()).unwrap();
+    let buffer = RgbaImage::from_raw(new_width, new_height, dst_image.buffer().to_vec()).unwrap();
 
-    let mut resized_dynamic_image = DynamicImage::ImageRgba8(image_buffer);
+    let mut resized_img = DynamicImage::ImageRgba8(buffer);
 
     Ok(image::imageops::crop(
-        &mut resized_dynamic_image,
+        &mut resized_img,
         crop_x,
         crop_y,
         desired_width,
@@ -131,8 +141,8 @@ async fn fetch_image_resize(
     url: &Url,
     size: &ImageSize,
     blur: bool,
-) -> anyhow::Result<DynamicImage> {
-    let image = fetch_image(&url).await?;
+) -> anyhow::Result<(DynamicImage, ImageFormat)> {
+    let (img, format) = fetch_image(&url).await?;
 
     let (width, height) = match size {
         ImageSize::Preview => (64, 64),
@@ -142,7 +152,7 @@ async fn fetch_image_resize(
     };
 
     let img = DynamicImage::ImageRgba8(
-        resize_fit_cover(image, width, height).context("failed to resize image")?,
+        resize_fit_cover(img, width, height).context("failed to resize image")?,
     );
 
     if blur {
@@ -158,19 +168,18 @@ async fn fetch_image_resize(
 
         gaussian_blur(&mut data, width as usize, height as usize, 10.0);
 
-        let blurred_image: ImageBuffer<Rgb<u8>, Vec<u8>> =
-            ImageBuffer::from_fn(width, height, |x, y| {
-                let pixel = data[(y * width + x) as usize];
-                Rgb([pixel[0], pixel[1], pixel[2]])
-            });
+        let blurred: ImageBuffer<Rgb<u8>, Vec<u8>> = ImageBuffer::from_fn(width, height, |x, y| {
+            let pixel = data[(y * width + x) as usize];
+            Rgb([pixel[0], pixel[1], pixel[2]])
+        });
 
-        Ok(DynamicImage::ImageRgb8(blurred_image))
+        Ok((DynamicImage::ImageRgb8(blurred), ImageFormat::JPEG))
     } else {
-        Ok(img)
+        Ok((img, format))
     }
 }
 
-fn respond_with_image(image: DynamicImage) -> anyhow::Result<Response> {
+fn respond_with_image(image: DynamicImage, format: ImageFormat) -> anyhow::Result<Response> {
     let headers = match Headers::new() {
         Ok(x) => x,
         Err(_) => return Err(anyhow::anyhow!("failed to set headers")),
@@ -179,12 +188,24 @@ fn respond_with_image(image: DynamicImage) -> anyhow::Result<Response> {
     let mut buf = std::io::Cursor::new(Vec::new());
 
     image
-        .write_to(&mut buf, image::ImageOutputFormat::Png)
+        .write_to(
+            &mut buf,
+            match format {
+                ImageFormat::PNG => image::ImageOutputFormat::Png,
+                ImageFormat::JPEG => image::ImageOutputFormat::Jpeg(80),
+            },
+        )
         .context("failed to encode resized image")?;
 
     let mut data = buf.get_ref().clone();
 
-    match headers.set("content-type", "image/png") {
+    match headers.set(
+        "content-type",
+        match format {
+            ImageFormat::PNG => "image/png",
+            ImageFormat::JPEG => "image/jpeg",
+        },
+    ) {
         Ok(_) => (),
         Err(_) => return Err(anyhow::anyhow!("failed to set headers")),
     };
@@ -229,7 +250,7 @@ pub async fn handler(request: Request) -> Response {
     // console_log!("size: {:?}, blur: {}", size, blur);
 
     match fetch_image_resize(&url, &size, blur).await {
-        Ok(image) => respond_with_image(image).unwrap(),
+        Ok((img, f)) => respond_with_image(img, f).unwrap(),
         Err(_err) => {
             // console_log!("{:?}", _err);
 
@@ -240,9 +261,11 @@ pub async fn handler(request: Request) -> Response {
                 _ => include_bytes!("../default/medium.png"),
             };
 
-            let image = image::load_from_memory(default_image).unwrap();
-
-            respond_with_image(image).unwrap()
+            respond_with_image(
+                image::load_from_memory(default_image).unwrap(),
+                ImageFormat::PNG,
+            )
+            .unwrap()
         }
     }
 }
