@@ -2,8 +2,6 @@ debug/
 target/
 
 Cargo.lock
+deno.lock
 
 **/*.rs.bk
-
-node_modules
-package-lock.json
