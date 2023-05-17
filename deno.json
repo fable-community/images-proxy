@@ -1,0 +1,6 @@
+{
+  "tasks": {
+    "build": "wasm-pack build --target deno --out-dir build",
+    "start": "deno run -A src/main.ts"
+  }
+}

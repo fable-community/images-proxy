@@ -1,20 +1,27 @@
 {
-  "editor.tabSize": 4,
   "editor.formatOnSave": true,
   "[rust]": {
-    "editor.defaultFormatter": "rust-lang.rust-analyzer",
+    "editor.tabSize": 4,
+    "editor.defaultFormatter": "rust-lang.rust-analyzer"
   },
+  "[typescript]": {
+    "editor.tabSize": 2,
+    "editor.defaultFormatter": "denoland.vscode-deno"
+  },
+  "deno.lint": true,
+  "deno.enable": true,
+  "deno.unstable": false,
+  "deno.config": "deno.json",
   "explorer.fileNesting.enabled": true,
   "explorer.fileNesting.expand": false,
   "files.exclude": {
     ".git": true,
     "build": true,
     "target": true,
-    "node_modules": true,
   },
   "explorer.fileNesting.patterns": {
     "README.md": "LICENSE,.gitignore",
-    "package.json": "package-lock.json"
-    "Cargo.toml": "Cargo.lock"
-  },
+    "Cargo.toml": "Cargo.lock",
+    "deno.json": "deno.lock"
+  }
 }

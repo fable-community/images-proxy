@@ -1,8 +1,10 @@
 use fast_image_resize as fr;
 use fastblur::gaussian_blur;
 use image::{DynamicImage, GenericImageView, ImageBuffer, Rgb, RgbaImage};
-use std::{collections::HashMap, num::NonZeroU32};
-use worker::*;
+use std::{collections::HashMap, num::NonZeroU32, str::FromStr};
+use url::{ParseError, Url};
+use wasm_bindgen::prelude::*;
+use web_sys::{Headers, Request, Response};
 
 #[derive(Debug)]
 enum ImageSize {
@@ -12,12 +14,20 @@ enum ImageSize {
     Large,     // 450x635,
 }
 
-async fn fetch_image(req: &Request) -> anyhow::Result<DynamicImage> {
-    let url = urlencoding::decode(&req.path()[1..])?.to_string();
+#[wasm_bindgen]
+extern "C" {
+    #[wasm_bindgen(js_namespace = console)]
+    fn log(s: &str);
+}
 
-    // TODO cache and load from cache
+macro_rules! console_log {
+    ($($t:tt)*) => (log(&format_args!($($t)*).to_string()))
+}
 
-    let response = reqwest::get(url).await?;
+async fn fetch_image(url: &Url) -> anyhow::Result<DynamicImage> {
+    let image_url = urlencoding::decode(&url.path()[1..])?.to_string();
+
+    let response = reqwest::get(image_url).await?;
 
     let content_type = response
         .headers()
@@ -108,11 +118,11 @@ fn resize_fit_cover(
 }
 
 async fn fetch_image_resize(
-    req: &Request,
+    url: &Url,
     size: &ImageSize,
     blur: bool,
 ) -> anyhow::Result<DynamicImage> {
-    let image = fetch_image(&req).await?;
+    let image = fetch_image(&url).await?;
 
     let (width, height) = match size {
         ImageSize::Preview => (64, 64),
@@ -149,34 +159,51 @@ async fn fetch_image_resize(
 }
 
 fn respond_with_image(image: DynamicImage) -> anyhow::Result<Response> {
-    let mut buf = std::io::Cursor::new(Vec::new());
+    let headers = match Headers::new() {
+        Ok(x) => x,
+        Err(_) => return Err(anyhow::anyhow!("")),
+    };
 
-    let mut headers = Headers::new();
+    let mut buf = std::io::Cursor::new(Vec::new());
 
     image.write_to(&mut buf, image::ImageOutputFormat::Png)?;
 
-    let data = buf.get_ref().clone();
+    let mut data = buf.get_ref().clone();
 
     match headers.set("content-type", "image/png") {
         Ok(_) => (),
-        Err(_) => return Err(anyhow::anyhow!("failed to write content-type header")),
+        Err(_) => return Err(anyhow::anyhow!("")),
     };
 
     match headers.set("content-length", &data.len().to_string()) {
         Ok(_) => (),
-        Err(_) => return Err(anyhow::anyhow!("failed to write content-length header")),
+        Err(_) => return Err(anyhow::anyhow!("")),
     };
 
-    match Response::from_body(ResponseBody::Body(data)) {
-        Ok(response) => Ok(response.with_headers(headers)),
-        Err(_) => Err(anyhow::anyhow!("failed to write response body")),
-    }
+    let headers = match Headers::new() {
+        Ok(x) => x,
+        Err(_) => return Err(anyhow::anyhow!("")),
+    };
+
+    let response = match Response::new_with_opt_u8_array_and_init(Some(&mut data), &{
+        let mut init = web_sys::ResponseInit::new();
+        init.headers(&headers);
+        init
+    }) {
+        Ok(x) => x,
+        Err(_) => return Err(anyhow::anyhow!("")),
+    };
+
+    Ok(response)
 }
 
-#[event(fetch)]
-async fn main(req: Request, _env: Env, _ctx: worker::Context) -> Result<Response> {
-    let hash_query = req
-        .url()?
+#[wasm_bindgen]
+pub async fn handler(request: Request) -> Response {
+    console_error_panic_hook::set_once();
+
+    let url = Url::from_str(&request.url()).unwrap();
+
+    let hash_query = url
         .query_pairs()
         .into_owned()
         .collect::<HashMap<String, String>>();
@@ -192,8 +219,12 @@ async fn main(req: Request, _env: Env, _ctx: worker::Context) -> Result<Response
 
     console_log!("size: {:?}, blur: {}", size, blur);
 
-    match fetch_image_resize(&req, &size, blur).await {
-        Ok(image) => Ok(respond_with_image(image).unwrap()),
+    // let response = Response::new_with_opt_str(Some("hello")).unwrap();
+
+    // response
+
+    match fetch_image_resize(&url, &size, blur).await {
+        Ok(image) => respond_with_image(image).unwrap(),
         Err(_) => {
             let default_image: &[u8] = match &size {
                 ImageSize::Preview | ImageSize::Thumbnail => {
@@ -204,7 +235,7 @@ async fn main(req: Request, _env: Env, _ctx: worker::Context) -> Result<Response
 
             let image = image::load_from_memory(default_image).unwrap();
 
-            Ok(respond_with_image(image).unwrap())
+            respond_with_image(image).unwrap()
         }
     }
 }
