@@ -32,6 +32,7 @@ jobs:
       - uses: actions/cache@v2
         with:
           path: |
+            ~/.cargo/bin
             ~/.cargo/registry
             ~/.cargo/git
             target
@@ -45,6 +46,8 @@ jobs:
           deno-version: v1.x
       
       - run: cargo install wasm-pack
+        continue-on-error: true
+        
       - run: deno task build
 
       - uses: denoland/deployctl@v1
