@@ -90,7 +90,11 @@ fn resize_fit_cover(
     let new_height = std::cmp::max((height as f32 * scale_factor) as u32, desired_height);
 
     let crop_x = (new_width - desired_width) / 2;
-    let crop_y = (new_height - desired_height) / 2;
+    let crop_y = if desired_width != desired_height {
+        (new_height - desired_height) / 2
+    } else {
+        0
+    };
 
     // console_log!(
     //     "{}, {}, {}, {}",
