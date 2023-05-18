@@ -3,6 +3,7 @@
 [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/fable-community/images-proxy)
 
 ```sh
+deno task build
 deno task start
 ```
 
