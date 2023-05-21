@@ -2,14 +2,14 @@ use anyhow::Context;
 use fast_image_resize as fr;
 use fastblur::gaussian_blur;
 use image::{DynamicImage, GenericImageView, ImageBuffer, Rgb, RgbaImage};
-use std::{collections::HashMap, num::NonZeroU32, str::FromStr};
+use std::{cmp::max, collections::HashMap, num::NonZeroU32, str::FromStr};
 use url::Url;
 use wasm_bindgen::prelude::*;
 use web_sys::{Headers, Request, Response, ResponseInit};
 
 #[derive(Debug)]
 enum ImageSize {
-    Preview,   // 64x64
+    Preview,   //
     Thumbnail, // 110x155
     Medium,    // 230x325
     Large,     // 450x635,
@@ -80,20 +80,22 @@ fn resize_fit_cover(
 ) -> anyhow::Result<RgbaImage> {
     let (width, height) = image.dimensions();
 
-    let scale_factor = if desired_width / desired_height > width / height {
-        desired_width as f32 / width as f32
-    } else {
-        desired_height as f32 / height as f32
-    };
+    let wratio = desired_width as f64 / width as f64;
+    let hratio = desired_height as f64 / height as f64;
 
-    let new_width = std::cmp::max((width as f32 * scale_factor) as u32, desired_width);
-    let new_height = std::cmp::max((height as f32 * scale_factor) as u32, desired_height);
+    let ratio = f64::min(wratio, hratio);
 
-    let crop_x = (new_width - desired_width) / 2;
-    let crop_y = if desired_width != desired_height {
-        (new_height - desired_height) / 2
+    let nw = max((width as f64 * ratio).round() as u64, 1);
+    let nh = max((height as f64 * ratio).round() as u64, 1);
+
+    let (new_width, new_height) = if nw > u64::from(u32::MAX) {
+        let ratio = u32::MAX as f64 / width as f64;
+        (u32::MAX, max((height as f64 * ratio).round() as u32, 1))
+    } else if nh > u64::from(u32::MAX) {
+        let ratio = u32::MAX as f64 / height as f64;
+        (max((width as f64 * ratio).round() as u32, 1), u32::MAX)
     } else {
-        0
+        (nw as u32, nh as u32)
     };
 
     // console_log!(
@@ -131,16 +133,7 @@ fn resize_fit_cover(
 
     let buffer = RgbaImage::from_raw(new_width, new_height, dst_image.buffer().to_vec()).unwrap();
 
-    let mut resized_img = DynamicImage::ImageRgba8(buffer);
-
-    Ok(image::imageops::crop(
-        &mut resized_img,
-        crop_x,
-        crop_y,
-        desired_width,
-        desired_height,
-    )
-    .to_image())
+    Ok(buffer)
 }
 
 async fn fetch_image_resize(
@@ -151,15 +144,19 @@ async fn fetch_image_resize(
     let (img, format) = fetch_image(url).await?;
 
     let (width, height) = match size {
-        ImageSize::Preview => (64, 64),
+        ImageSize::Preview => (48, 48),
         ImageSize::Thumbnail => (110, 155),
         ImageSize::Medium => (230, 325),
         ImageSize::Large => (450, 635),
     };
 
-    let img = DynamicImage::ImageRgba8(
-        resize_fit_cover(img, width, height).context("failed to resize image")?,
-    );
+    let img = if width == height {
+        img.thumbnail_exact(width, height)
+    } else {
+        DynamicImage::ImageRgba8(
+            resize_fit_cover(img, width, height).context("failed to resize image")?,
+        )
+    };
 
     if blur {
         let (width, height) = img.dimensions();
