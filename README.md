@@ -1,7 +1,6 @@
 # images-proxy
 
-[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/fable-community/images-proxy)
-
+<a href='https://codespaces.new/fable-community/images-proxy?quickstart=1'><img src='https://github.com/codespaces/badge.svg' alt='Open in GitHub Codespaces'></a>
 ```sh
 deno task build
 deno task start
