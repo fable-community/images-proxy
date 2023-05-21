@@ -96,6 +96,7 @@ fn resize_fit_cover(
         (max((width as f64 * ratio).round() as u32, 1), u32::MAX)
     } else {
         (nw as u32, nh as u32)
+
     };
 
     // console_log!(
