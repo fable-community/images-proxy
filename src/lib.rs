@@ -2,14 +2,14 @@ use anyhow::Context;
 use fast_image_resize as fr;
 use fastblur::gaussian_blur;
 use image::{DynamicImage, GenericImageView, ImageBuffer, Rgb, RgbaImage};
-use std::{collections::HashMap, num::NonZeroU32, str::FromStr};
+use std::{cmp::max, collections::HashMap, num::NonZeroU32, str::FromStr};
 use url::Url;
 use wasm_bindgen::prelude::*;
 use web_sys::{Headers, Request, Response, ResponseInit};
 
 #[derive(Debug)]
 enum ImageSize {
-    Preview,   // 64x64
+    Preview,   // 48x48
     Thumbnail, // 110x155
     Medium,    // 230x325
     Large,     // 450x635,
@@ -73,36 +73,30 @@ async fn fetch_image(url: &Url) -> anyhow::Result<(DynamicImage, ImageFormat)> {
     Ok((img, format))
 }
 
-fn resize_fit_cover(
+fn resize_to_fit(
     image: DynamicImage,
     desired_width: u32,
     desired_height: u32,
-) -> anyhow::Result<RgbaImage> {
+) -> anyhow::Result<DynamicImage> {
     let (width, height) = image.dimensions();
 
-    let scale_factor = if desired_width / desired_height > width / height {
-        desired_width as f32 / width as f32
+    let wratio = desired_width as f64 / width as f64;
+    let hratio = desired_height as f64 / height as f64;
+
+    let ratio = f64::max(wratio, hratio);
+
+    let nw = max((width as f64 * ratio).round() as u64, 1);
+    let nh = max((height as f64 * ratio).round() as u64, 1);
+
+    let (new_width, new_height) = if nw > u64::from(u32::MAX) {
+        let ratio = u32::MAX as f64 / width as f64;
+        (u32::MAX, max((height as f64 * ratio).round() as u32, 1))
+    } else if nh > u64::from(u32::MAX) {
+        let ratio = u32::MAX as f64 / height as f64;
+        (max((width as f64 * ratio).round() as u32, 1), u32::MAX)
     } else {
-        desired_height as f32 / height as f32
+        (nw as u32, nh as u32)
     };
-
-    let new_width = std::cmp::max((width as f32 * scale_factor) as u32, desired_width);
-    let new_height = std::cmp::max((height as f32 * scale_factor) as u32, desired_height);
-
-    let crop_x = (new_width - desired_width) / 2;
-    let crop_y = if desired_width != desired_height {
-        (new_height - desired_height) / 2
-    } else {
-        0
-    };
-
-    // console_log!(
-    //     "{}, {}, {}, {}",
-    //     new_width,
-    //     new_height,
-    //     new_width as i32 - desired_width as i32,
-    //     new_height as i32 - desired_height as i32
-    // );
 
     let mut src_image = fr::Image::from_vec_u8(
         NonZeroU32::new(width).unwrap(),
@@ -131,16 +125,28 @@ fn resize_fit_cover(
 
     let buffer = RgbaImage::from_raw(new_width, new_height, dst_image.buffer().to_vec()).unwrap();
 
-    let mut resized_img = DynamicImage::ImageRgba8(buffer);
+    let resized_img = DynamicImage::ImageRgba8(buffer);
 
-    Ok(image::imageops::crop(
-        &mut resized_img,
-        crop_x,
-        crop_y,
-        desired_width,
-        desired_height,
-    )
-    .to_image())
+    let (iwidth, iheight) = resized_img.dimensions();
+
+    let ratio = u64::from(iwidth) * u64::from(desired_height);
+    let nratio = u64::from(desired_width) * u64::from(iheight);
+
+    if nratio > ratio {
+        Ok(resized_img.crop_imm(
+            0,
+            (iheight - desired_height) / 2,
+            desired_width,
+            desired_height,
+        ))
+    } else {
+        Ok(resized_img.crop_imm(
+            (iwidth - desired_width) / 2,
+            0,
+            desired_width,
+            desired_height,
+        ))
+    }
 }
 
 async fn fetch_image_resize(
@@ -151,15 +157,13 @@ async fn fetch_image_resize(
     let (img, format) = fetch_image(url).await?;
 
     let (width, height) = match size {
-        ImageSize::Preview => (64, 64),
+        ImageSize::Preview => (48, 48),
         ImageSize::Thumbnail => (110, 155),
         ImageSize::Medium => (230, 325),
         ImageSize::Large => (450, 635),
     };
 
-    let img = DynamicImage::ImageRgba8(
-        resize_fit_cover(img, width, height).context("failed to resize image")?,
-    );
+    let img = resize_to_fit(img, width, height).context("failed to resize image")?;
 
     if blur {
         let (width, height) = img.dimensions();
