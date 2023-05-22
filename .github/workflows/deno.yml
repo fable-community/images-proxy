@@ -3,15 +3,6 @@ name: deno
 on: [push]
 
 jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: denoland/setup-deno@v1
-        with:
-          deno-version: v1.x
-      - run: deno test --config deno.json --allow-all
-  
   fmt:
     runs-on: ubuntu-latest
     steps:
@@ -29,10 +20,8 @@ jobs:
         with:
           deno-version: v1.x
       - run: deno lint --config deno.json
-  
-  deploy:
-    name: deploy
-    needs: [test]
+
+  build:
     runs-on: ubuntu-latest
     permissions:
       id-token: write
@@ -59,7 +48,37 @@ jobs:
         continue-on-error: true
         
       - run: deno task build
+      - uses: actions/upload-artifact@v3
+        with:
+          name: build
+          path: ${{ github.workspace }}/build/**/*
+  
+  test:
+    needs: [build]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/download-artifact@v3
+        with:
+          name: build
+          path: ${{ github.workspace }}/build
+      - uses: denoland/setup-deno@v1
+        with:
+          deno-version: v1.x
+      - run: deno test --config deno.json --allow-all
 
+  deploy:
+    needs: [build, test]
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/download-artifact@v3
+        with:
+          name: build
+          path: ${{ github.workspace }}/build
       - uses: denoland/deployctl@v1
         with:
           project: images-proxy
