@@ -3,6 +3,15 @@ name: deno
 on: [push]
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: denoland/setup-deno@v1
+        with:
+          deno-version: v1.x
+      - run: deno test --config deno.json --allow-all
+  
   fmt:
     runs-on: ubuntu-latest
     steps:
@@ -23,6 +32,7 @@ jobs:
   
   deploy:
     name: deploy
+    needs: [test]
     runs-on: ubuntu-latest
     permissions:
       id-token: write
