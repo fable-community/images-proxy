@@ -265,7 +265,10 @@ pub async fn handler(request: Request) -> Response {
             // console_log!("{:?}", _err);
 
             let default_image: &[u8] = match &size {
-                ImageSize::Preview | ImageSize::Thumbnail => {
+                ImageSize::Preview => {
+                    include_bytes!("../default/preview.png")
+                }
+                ImageSize::Thumbnail => {
                     include_bytes!("../default/thumbnail.png")
                 }
                 _ => include_bytes!("../default/medium.png"),
