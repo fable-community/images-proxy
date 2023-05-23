@@ -132,7 +132,9 @@ fn resize_to_fit(
     let ratio = u64::from(iwidth) * u64::from(desired_height);
     let nratio = u64::from(desired_width) * u64::from(iheight);
 
-    if nratio > ratio {
+    if desired_width == desired_height {
+        Ok(resized_img.crop_imm(0, 0, desired_width, desired_height))
+    } else if nratio > ratio {
         Ok(resized_img.crop_imm(
             0,
             (iheight - desired_height) / 2,
