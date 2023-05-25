@@ -25,8 +25,8 @@
      inkscape:deskcolor="#505050"
      showgrid="false"
      inkscape:zoom="1.6542147"
-     inkscape:cx="392.93569"
-     inkscape:cy="6.6496809"
+     inkscape:cx="370.26633"
+     inkscape:cy="6.649681"
      inkscape:current-layer="layer1" /><mask
      id="a"
      fill="#ffffff"><path
@@ -60,7 +60,10 @@
          style="stroke-width:2.82992">IMAGE</tspan></text><g
        id="g241"
        inkscape:label="preview"
-       transform="translate(-122.90328,61.651989)"><rect
+       transform="matrix(0.67820683,0,0,0.67820683,64.744917,41.990907)"
+       inkscape:export-filename="./g241.png"
+       inkscape:export-xdpi="96"
+       inkscape:export-ydpi="96"><rect
          style="opacity:0;fill:none;fill-rule:evenodd;stroke:none;stroke-width:0.816748;paint-order:markers stroke fill"
          id="rect238"
          width="47.183247"
