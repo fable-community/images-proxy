@@ -9,7 +9,7 @@ use web_sys::{Headers, Request, Response, ResponseInit};
 
 #[derive(Debug)]
 enum ImageSize {
-    Preview,   // 48x48
+    Preview,   // 32x32
     Thumbnail, // 110x155
     Medium,    // 230x325
     Large,     // 450x635,
@@ -132,9 +132,7 @@ fn resize_to_fit(
     let ratio = u64::from(iwidth) * u64::from(desired_height);
     let nratio = u64::from(desired_width) * u64::from(iheight);
 
-    if desired_width == desired_height {
-        Ok(resized_img.crop_imm(0, 0, desired_width, desired_height))
-    } else if nratio > ratio {
+    if nratio > ratio {
         Ok(resized_img.crop_imm(
             0,
             (iheight - desired_height) / 2,
@@ -159,7 +157,7 @@ async fn fetch_image_resize(
     let (img, format) = fetch_image(url).await?;
 
     let (width, height) = match size {
-        ImageSize::Preview => (48, 48),
+        ImageSize::Preview => (32, 32),
         ImageSize::Thumbnail => (110, 155),
         ImageSize::Medium => (230, 325),
         ImageSize::Large => (450, 635),
