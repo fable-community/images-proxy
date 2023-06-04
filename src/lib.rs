@@ -31,23 +31,54 @@ macro_rules! console_log {
     ($($t:tt)*) => (log(&format_args!($($t)*).to_string()))
 }
 
+fn trim_text(s: &str) -> String {
+    s.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
 async fn fetch_image(url: &Url) -> anyhow::Result<(DynamicImage, ImageFormat)> {
     let image_url = urlencoding::decode(&url.path()[1..])
         .context(format!("failed to decode url {}", url.path()))?
         .to_string();
 
-    let response = reqwest::get(image_url)
+    let mut response = reqwest::get(image_url)
         .await
         .context(format!("failed to fetch {}", url.path()))?;
 
-    let content_type = response
+    let mut content_type = response
         .headers()
         .get("Content-Type")
         .and_then(|x| x.to_str().ok());
 
+    // if response is a html page
+    // check tags for a og:image url
+    if content_type.map(|s| s.starts_with("text/html")) == Some(true) {
+        let xml = trim_text(&response.text().await?);
+
+        let re = regex::Regex::new(r#"<meta.*?property="og:image".*?content="(.*?)""#)?;
+
+        if let Some(cap) = re.captures(&xml) {
+            let mut url = Url::from_str(&cap[1])?;
+
+            // imgur has ?fb query that cuts images
+            // it's save to removed to retrieve the original uncut image
+            if url.host_str() == Some("i.imgur.com") {
+                url.set_query(None);
+            }
+
+            response = reqwest::get(url).await?;
+
+            content_type = response
+                .headers()
+                .get("Content-Type")
+                .and_then(|x| x.to_str().ok());
+        } else {
+            return Err(anyhow::anyhow!(format!("html page has no og:image")));
+        }
+    }
+
     let format = match content_type {
         Some("image/jpeg") => ImageFormat::Jpeg,
-        // webp encoding is not supported while targting wasm
+        // TODO webp encoding is not supported while targeting wasm
         // all webp images will be convented to png
         Some("image/png") | Some("image/webp") => ImageFormat::Png,
         Some(s) => return Err(anyhow::anyhow!(format!("image type {} no allowed", s))),
@@ -59,7 +90,7 @@ async fn fetch_image(url: &Url) -> anyhow::Result<(DynamicImage, ImageFormat)> {
         response.status(),
         content_type,
         format,
-        url.path()
+        response.url()
     );
 
     let image_data = response
@@ -68,7 +99,7 @@ async fn fetch_image(url: &Url) -> anyhow::Result<(DynamicImage, ImageFormat)> {
         .context("failed to convent response body to bytes")?;
 
     let img =
-        image::load_from_memory(&image_data).context("failed to laod image from response body")?;
+        image::load_from_memory(&image_data).context("failed to load image from response body")?;
 
     Ok((img, format))
 }
