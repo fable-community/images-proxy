@@ -28,6 +28,7 @@ anyhow = "1.0.71"
 urlencoding = "2.1.2"
 fastblur = "0.1.1"
 fast_image_resize = "2.7.3"
+regex = "1.8.3"
 
 image = { version = "0.24.6", default-features = false, features = [
   "jpeg",
