@@ -34,6 +34,9 @@ serve(async (request) => {
 
   const response = await handler(request);
 
+  // set 12 days of cache
+  response.headers.set('cache-control', `max-age=${86400 * 12}`);
+
   if (Number(response.headers.get('content-length')) <= TEN_MIB) {
     const v = {
       body: await response.arrayBuffer(),
