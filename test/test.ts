@@ -16,6 +16,8 @@ const kiara = 'http://./https://images2.imgbox.com/05/06/ilSpCC45_o.png';
 const fauna = 'http://./https://images2.imgbox.com/76/07/BLiqJb65_o.png';
 const aqua = 'http://./https://images2.imgbox.com/a8/8c/a91bsWKH_o.png';
 
+const guraEmbed = 'http://./https://imgbox.com/mxkxpJOP';
+
 const compare = async (
   snapShotPath: URL,
   response: Response,
@@ -124,6 +126,23 @@ Deno.test('preview square', async (test) => {
   );
 
   const response = await handler(new Request(`${aqua}?size=preview`));
+
+  if (!existsSync(snapShotPath)) {
+    await Deno.writeFile(
+      snapShotPath,
+      new Uint8Array(await response.arrayBuffer()),
+    );
+  } else {
+    assertEquals(await compare(snapShotPath, response), 0);
+  }
+});
+
+Deno.test('ogimage', async (test) => {
+  const snapShotPath = new URL(
+    join(directory, `__snapshots__/${test.name}.jpeg`),
+  );
+
+  const response = await handler(new Request(guraEmbed));
 
   if (!existsSync(snapShotPath)) {
     await Deno.writeFile(
