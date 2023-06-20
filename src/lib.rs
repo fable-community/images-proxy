@@ -1,7 +1,6 @@
 use anyhow::Context;
 use fast_image_resize as fr;
-use fastblur::gaussian_blur;
-use image::{DynamicImage, GenericImageView, ImageBuffer, Rgb, RgbaImage};
+use image::{DynamicImage, GenericImageView, RgbaImage};
 use std::{cmp::max, collections::HashMap, num::NonZeroU32, str::FromStr};
 use url::Url;
 use wasm_bindgen::prelude::*;
@@ -183,7 +182,6 @@ fn resize_to_fit(
 async fn fetch_image_resize(
     url: &Url,
     size: &ImageSize,
-    blur: bool,
 ) -> anyhow::Result<(DynamicImage, ImageFormat)> {
     let (img, format) = fetch_image(url).await?;
 
@@ -196,28 +194,7 @@ async fn fetch_image_resize(
 
     let img = resize_to_fit(img, width, height).context("failed to resize image")?;
 
-    if blur {
-        let (width, height) = img.dimensions();
-
-        let mut data: Vec<[u8; 3]> = img
-            .pixels()
-            .map(|(_, _, pixel)| {
-                let [r, g, b, _] = pixel.0;
-                [r, g, b]
-            })
-            .collect();
-
-        gaussian_blur(&mut data, width as usize, height as usize, 10.0);
-
-        let blurred: ImageBuffer<Rgb<u8>, Vec<u8>> = ImageBuffer::from_fn(width, height, |x, y| {
-            let pixel = data[(y * width + x) as usize];
-            Rgb([pixel[0], pixel[1], pixel[2]])
-        });
-
-        Ok((DynamicImage::ImageRgb8(blurred), ImageFormat::Jpeg))
-    } else {
-        Ok((img, format))
-    }
+    Ok((img, format))
 }
 
 fn respond_with_image(image: DynamicImage, format: ImageFormat) -> anyhow::Result<Response> {
@@ -279,8 +256,6 @@ pub async fn handler(request: Request) -> Response {
         .into_owned()
         .collect::<HashMap<String, String>>();
 
-    let blur = hash_query.contains_key("blur");
-
     let size = match hash_query.get("size").map(|x| x.as_str()) {
         Some("preview") => ImageSize::Preview,
         Some("thumbnail") => ImageSize::Thumbnail,
@@ -288,9 +263,7 @@ pub async fn handler(request: Request) -> Response {
         _ => ImageSize::Large,
     };
 
-    // console_log!("size: {:?}, blur: {}", size, blur);
-
-    match fetch_image_resize(&url, &size, blur).await {
+    match fetch_image_resize(&url, &size).await {
         Ok((img, f)) => respond_with_image(img, f).unwrap(),
         Err(_err) => {
             // console_log!("{:?}", _err);

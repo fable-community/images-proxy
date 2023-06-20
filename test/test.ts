@@ -52,23 +52,6 @@ Deno.test('large portrait', async (test) => {
   }
 });
 
-Deno.test('large portrait blurred', async (test) => {
-  const snapShotPath = new URL(
-    join(directory, `__snapshots__/${test.name}.jpeg`),
-  );
-
-  const response = await handler(new Request(`${kiara}?blur`));
-
-  if (!existsSync(snapShotPath)) {
-    await Deno.writeFile(
-      snapShotPath,
-      new Uint8Array(await response.arrayBuffer()),
-    );
-  } else {
-    assertEquals(await compare(snapShotPath, response), 0);
-  }
-});
-
 Deno.test('large portrait 2', async (test) => {
   const snapShotPath = new URL(
     join(directory, `__snapshots__/${test.name}.jpeg`),
