@@ -1,5 +1,3 @@
-import { serve } from 'https://deno.land/std@0.187.0/http/server.ts';
-
 import { LRU } from 'https://deno.land/x/lru@1.0.2/mod.ts';
 
 import { handler } from '../build/images_proxy.js';
@@ -11,7 +9,7 @@ const lru = new LRU<{
   headers: Headers;
 }>(20);
 
-serve(async (request) => {
+Deno.serve(async (request) => {
   const url = new URL(request.url);
 
   const key = (url.pathname + url.search).substring(1);
