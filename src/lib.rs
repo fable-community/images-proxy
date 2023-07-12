@@ -1,7 +1,7 @@
 use anyhow::Context;
 use fast_image_resize as fr;
 use image::{DynamicImage, GenericImageView, RgbaImage};
-use js_sys::Uint8Array;
+use js_sys::{Object, Uint8Array};
 use std::{cmp::max, num::NonZeroU32, str::FromStr};
 use url::Url;
 use wasm_bindgen::prelude::*;
@@ -193,7 +193,9 @@ async fn fetch_image_resize(
     Ok((img, format))
 }
 
-fn respond_with_image(image: DynamicImage, format: ImageFormat) -> anyhow::Result<Uint8Array> {
+fn respond_with_image(image: DynamicImage, format: ImageFormat) -> anyhow::Result<Object> {
+    let value = Object::new();
+
     let mut buf = std::io::Cursor::new(Vec::new());
 
     image
@@ -208,11 +210,33 @@ fn respond_with_image(image: DynamicImage, format: ImageFormat) -> anyhow::Resul
         )
         .context("failed to encode resized image")?;
 
-    Ok(Uint8Array::from(buf.get_ref().clone().as_ref()))
+    match format {
+        ImageFormat::WebP | ImageFormat::Png => js_sys::Reflect::set(
+            &value,
+            &JsValue::from("format"),
+            &JsValue::from("image/png"),
+        )
+        .unwrap(),
+        ImageFormat::Jpeg => js_sys::Reflect::set(
+            &value,
+            &JsValue::from("format"),
+            &JsValue::from("image/jpeg"),
+        )
+        .unwrap(),
+    };
+
+    js_sys::Reflect::set(
+        &value,
+        &JsValue::from("image"),
+        &Uint8Array::from(buf.get_ref().clone().as_ref()),
+    )
+    .unwrap();
+
+    Ok(value)
 }
 
 #[wasm_bindgen]
-pub async fn proxy(url: &str, size: Option<String>) -> Uint8Array {
+pub async fn proxy(url: &str, size: Option<String>) -> Object {
     console_error_panic_hook::set_once();
 
     let size = match size.as_ref().map(|x| x.as_str()) {
@@ -226,6 +250,7 @@ pub async fn proxy(url: &str, size: Option<String>) -> Uint8Array {
         Ok((img, f)) => respond_with_image(img, f).unwrap(),
         Err(_err) => {
             // console_log!("{:?}", _err);
+            let value = Object::new();
 
             let default_image: &[u8] = match &size {
                 ImageSize::Preview => include_bytes!("../default/preview.png"),
@@ -233,7 +258,21 @@ pub async fn proxy(url: &str, size: Option<String>) -> Uint8Array {
                 _ => include_bytes!("../default/medium.png"),
             };
 
-            Uint8Array::from(default_image)
+            js_sys::Reflect::set(
+                &value,
+                &JsValue::from("format"),
+                &JsValue::from("image/png"),
+            )
+            .unwrap();
+
+            js_sys::Reflect::set(
+                &value,
+                &JsValue::from("image"),
+                &Uint8Array::from(default_image),
+            )
+            .unwrap();
+
+            value
         }
     }
 }
