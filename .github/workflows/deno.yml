@@ -22,7 +22,6 @@ jobs:
       - run: deno lint --config deno.json
 
   test:
-    needs: [build]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
