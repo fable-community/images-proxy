@@ -12,6 +12,7 @@
   },
   "lock": false,
   "lint": {
+    "include": ["src", "test"],
     "rules": {
       "tags": ["recommended"],
       "include": [
