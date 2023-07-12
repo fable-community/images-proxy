@@ -1,10 +1,10 @@
 use anyhow::Context;
 use fast_image_resize as fr;
 use image::{DynamicImage, GenericImageView, RgbaImage};
-use std::{cmp::max, collections::HashMap, num::NonZeroU32, str::FromStr};
+use js_sys::Uint8Array;
+use std::{cmp::max, num::NonZeroU32, str::FromStr};
 use url::Url;
 use wasm_bindgen::prelude::*;
-use web_sys::{Headers, Request, Response, ResponseInit};
 
 #[derive(Debug)]
 enum ImageSize {
@@ -18,6 +18,7 @@ enum ImageSize {
 enum ImageFormat {
     Png,
     Jpeg,
+    WebP,
 }
 
 #[wasm_bindgen]
@@ -34,14 +35,10 @@ fn trim_text(s: &str) -> String {
     s.split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
-async fn fetch_image(url: &Url) -> anyhow::Result<(DynamicImage, ImageFormat)> {
-    let image_url = urlencoding::decode(&url.path()[1..])
-        .context(format!("failed to decode url {}", url.path()))?
-        .to_string();
-
-    let mut response = reqwest::get(image_url)
+async fn fetch_image(url: &str) -> anyhow::Result<(DynamicImage, ImageFormat)> {
+    let mut response = reqwest::get(url)
         .await
-        .context(format!("failed to fetch {}", url.path()))?;
+        .context(format!("failed to fetch {}", url))?;
 
     let mut content_type = response
         .headers()
@@ -77,9 +74,8 @@ async fn fetch_image(url: &Url) -> anyhow::Result<(DynamicImage, ImageFormat)> {
 
     let format = match content_type {
         Some("image/jpeg") => ImageFormat::Jpeg,
-        // TODO webp encoding is not supported while targeting wasm
-        // all webp images will be convented to png
-        Some("image/png") | Some("image/webp") => ImageFormat::Png,
+        Some("image/png") => ImageFormat::Png,
+        Some("image/webp") => ImageFormat::WebP,
         Some(s) => return Err(anyhow::anyhow!(format!("image type {} no allowed", s))),
         None => return Err(anyhow::anyhow!("No content-type header")),
     };
@@ -180,7 +176,7 @@ fn resize_to_fit(
 }
 
 async fn fetch_image_resize(
-    url: &Url,
+    url: &str,
     size: &ImageSize,
 ) -> anyhow::Result<(DynamicImage, ImageFormat)> {
     let (img, format) = fetch_image(url).await?;
@@ -197,66 +193,29 @@ async fn fetch_image_resize(
     Ok((img, format))
 }
 
-fn respond_with_image(image: DynamicImage, format: ImageFormat) -> anyhow::Result<Response> {
-    let headers = match Headers::new() {
-        Ok(x) => x,
-        Err(_) => return Err(anyhow::anyhow!("failed to set headers")),
-    };
-
+fn respond_with_image(image: DynamicImage, format: ImageFormat) -> anyhow::Result<Uint8Array> {
     let mut buf = std::io::Cursor::new(Vec::new());
 
     image
         .write_to(
             &mut buf,
             match format {
-                ImageFormat::Png => image::ImageOutputFormat::Png,
+                // TODO webp encoding is not supported while targeting wasm
+                // all webp images will be convented to png
+                ImageFormat::WebP | ImageFormat::Png => image::ImageOutputFormat::Png,
                 ImageFormat::Jpeg => image::ImageOutputFormat::Jpeg(80),
             },
         )
         .context("failed to encode resized image")?;
 
-    let mut data = buf.get_ref().clone();
-
-    match headers.set(
-        "content-type",
-        match format {
-            ImageFormat::Png => "image/png",
-            ImageFormat::Jpeg => "image/jpeg",
-        },
-    ) {
-        Ok(_) => (),
-        Err(_) => return Err(anyhow::anyhow!("failed to set headers")),
-    };
-
-    match headers.set("content-length", &data.len().to_string()) {
-        Ok(_) => (),
-        Err(_) => return Err(anyhow::anyhow!("failed to set headers")),
-    };
-
-    let response = match Response::new_with_opt_u8_array_and_init(Some(&mut data), &{
-        let mut init = ResponseInit::new();
-        init.headers(&headers);
-        init
-    }) {
-        Ok(x) => x,
-        Err(_) => return Err(anyhow::anyhow!("failed to create new response object")),
-    };
-
-    Ok(response)
+    Ok(Uint8Array::from(buf.get_ref().clone().as_ref()))
 }
 
 #[wasm_bindgen]
-pub async fn handler(request: Request) -> Response {
+pub async fn proxy(url: &str, size: Option<String>) -> Uint8Array {
     console_error_panic_hook::set_once();
 
-    let url = Url::from_str(&request.url()).unwrap();
-
-    let hash_query = url
-        .query_pairs()
-        .into_owned()
-        .collect::<HashMap<String, String>>();
-
-    let size = match hash_query.get("size").map(|x| x.as_str()) {
+    let size = match size.as_ref().map(|x| x.as_str()) {
         Some("preview") => ImageSize::Preview,
         Some("thumbnail") => ImageSize::Thumbnail,
         Some("medium") => ImageSize::Medium,
@@ -269,20 +228,12 @@ pub async fn handler(request: Request) -> Response {
             // console_log!("{:?}", _err);
 
             let default_image: &[u8] = match &size {
-                ImageSize::Preview => {
-                    include_bytes!("../default/preview.png")
-                }
-                ImageSize::Thumbnail => {
-                    include_bytes!("../default/thumbnail.png")
-                }
+                ImageSize::Preview => include_bytes!("../default/preview.png"),
+                ImageSize::Thumbnail => include_bytes!("../default/thumbnail.png"),
                 _ => include_bytes!("../default/medium.png"),
             };
 
-            respond_with_image(
-                image::load_from_memory(default_image).unwrap(),
-                ImageFormat::Png,
-            )
-            .unwrap()
+            Uint8Array::from(default_image)
         }
     }
 }
