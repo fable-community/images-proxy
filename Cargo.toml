@@ -39,4 +39,4 @@ image = { version = "0.24.6", default-features = false, features = [
 lto = true
 strip = true
 codegen-units = 1
-opt-level = "s"
+opt-level = 2

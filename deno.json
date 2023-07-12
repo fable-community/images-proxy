@@ -2,7 +2,7 @@
   "tasks": {
     "build": "wasm-pack build --target deno --out-dir build",
     "watch": "cargo watch -w src/lib.rs -s \"deno task build\"",
-    "start": "deno run --watch -A src/main.ts"
+    "start": "deno run --watch -A mod.ts"
   },
   "fmt": {
     "useTabs": false,
@@ -10,6 +10,7 @@
     "indentWidth": 2,
     "include": ["src","test"]
   },
+  "lock": false,
   "lint": {
     "rules": {
       "tags": ["recommended"],
