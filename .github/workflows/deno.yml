@@ -21,65 +21,11 @@ jobs:
           deno-version: v1.x
       - run: deno lint --config deno.json
 
-  build:
-    runs-on: ubuntu-latest
-    permissions:
-      id-token: write
-      contents: read
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions/cache@v2
-        with:
-          path: |
-            ~/.cargo/bin
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-cargo
-      
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-      - uses: denoland/setup-deno@v1
-        with:
-          deno-version: v1.x
-      
-      - run: cargo install wasm-pack
-        continue-on-error: true
-        
-      - run: deno task build
-      - uses: actions/upload-artifact@v3
-        with:
-          name: build
-          path: ${{ github.workspace }}/build/**/*
-  
   test:
-    needs: [build]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - uses: actions/download-artifact@v3
-        with:
-          name: build
-          path: ${{ github.workspace }}/build
       - uses: denoland/setup-deno@v1
         with:
           deno-version: v1.x
       - run: deno test --config deno.json --allow-all
-
-  deploy:
-    needs: [build, test]
-    runs-on: ubuntu-latest
-    permissions:
-      id-token: write
-      contents: read
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions/download-artifact@v3
-        with:
-          name: build
-          path: ${{ github.workspace }}/build
-      - uses: denoland/deployctl@v1
-        with:
-          project: images-proxy
-          entrypoint: src/main.ts
