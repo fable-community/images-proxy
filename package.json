@@ -1,15 +1,22 @@
 {
   "name": "@fable-community/images-proxy",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Used in Fable to resize any images on the fly",
   "main": "build/images_proxy.js",
+  "files": [
+    "build/images_proxy.js",
+    "build/images_proxy.d.ts",
+    "build/images_proxy_bg.wasm",
+    "README.md",
+    "LICENSE"
+  ],
   "repository": {
     "type": "git",
     "url": "git+https://github.com/fable-community/images-proxy.git"
   },
+  "types": "build/images_proxy.d.ts",
   "author": "",
   "license": "MIT",
-  "types": "build/images_proxy.d.ts",
   "bugs": {
     "url": "https://github.com/fable-community/images-proxy/issues"
   },
