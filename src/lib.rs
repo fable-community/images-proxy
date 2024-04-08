@@ -1,10 +1,17 @@
 use anyhow::Context;
 use fast_image_resize as fr;
 use image::{buffer::ConvertBuffer, DynamicImage, GenericImageView, RgbaImage};
-use js_sys::{Object, Uint8Array};
+use js_sys::Uint8Array;
 use std::{cmp::max, num::NonZeroU32, str::FromStr};
 use url::Url;
 use wasm_bindgen::prelude::*;
+
+#[derive(Clone)]
+#[wasm_bindgen(getter_with_clone)]
+pub struct Image {
+    pub format: String,
+    pub image: Uint8Array,
+}
 
 #[derive(Debug)]
 enum ImageSize {
@@ -193,9 +200,7 @@ async fn fetch_image_resize(
     Ok((img, format))
 }
 
-fn respond_with_image(mut image: DynamicImage, format: ImageFormat) -> anyhow::Result<Object> {
-    let value = Object::new();
-
+fn respond_with_image(mut image: DynamicImage, format: ImageFormat) -> anyhow::Result<Image> {
     let mut buf = std::io::Cursor::new(Vec::new());
 
     if format == ImageFormat::Jpeg {
@@ -204,6 +209,7 @@ fn respond_with_image(mut image: DynamicImage, format: ImageFormat) -> anyhow::R
             _ => image,
         };
     }
+
     image
         .write_to(
             &mut buf,
@@ -215,39 +221,27 @@ fn respond_with_image(mut image: DynamicImage, format: ImageFormat) -> anyhow::R
         )
         .context("failed to encode resized image")?;
 
-    match format {
-        ImageFormat::WebP => js_sys::Reflect::set(
-            &value,
-            &JsValue::from("format"),
-            &JsValue::from("image/webp"),
-        )
-        .unwrap(),
-        ImageFormat::Png => js_sys::Reflect::set(
-            &value,
-            &JsValue::from("format"),
-            &JsValue::from("image/png"),
-        )
-        .unwrap(),
-        ImageFormat::Jpeg => js_sys::Reflect::set(
-            &value,
-            &JsValue::from("format"),
-            &JsValue::from("image/jpeg"),
-        )
-        .unwrap(),
-    };
+    Ok(Image {
+        format: match format {
+            ImageFormat::WebP => String::from("image/webp"),
+            ImageFormat::Png => String::from("image/png"),
+            ImageFormat::Jpeg => String::from("image/jpeg"),
+        },
+        image: Uint8Array::from(buf.get_ref().as_slice()),
+    })
 
-    js_sys::Reflect::set(
-        &value,
-        &JsValue::from("image"),
-        &Uint8Array::from(buf.get_ref().as_slice()),
-    )
-    .unwrap();
+    // js_sys::Reflect::set(
+    //     &value,
+    //     &JsValue::from("image"),
+    //     &Uint8Array::from(buf.get_ref().as_slice()),
+    // )
+    // .unwrap();
 
-    Ok(value)
+    // Ok(value)
 }
 
 #[wasm_bindgen]
-pub async fn proxy(url: &str, size: Option<String>) -> Object {
+pub async fn proxy(url: &str, size: Option<String>) -> Image {
     console_error_panic_hook::set_once();
 
     let size = match size.as_ref().map(|x| x.as_str()) {
@@ -262,29 +256,16 @@ pub async fn proxy(url: &str, size: Option<String>) -> Object {
         Err(_err) => {
             // console_log!("{:?}", _err);
 
-            let value = Object::new();
-
             let default_image: &[u8] = match &size {
                 ImageSize::Preview => include_bytes!("../default/preview.webp"),
                 ImageSize::Thumbnail => include_bytes!("../default/thumbnail.webp"),
                 _ => include_bytes!("../default/medium.webp"),
             };
 
-            js_sys::Reflect::set(
-                &value,
-                &JsValue::from("format"),
-                &JsValue::from("image/webp"),
-            )
-            .unwrap();
-
-            js_sys::Reflect::set(
-                &value,
-                &JsValue::from("image"),
-                &Uint8Array::from(default_image),
-            )
-            .unwrap();
-
-            value
+            Image {
+                format: String::from("image/webp"),
+                image: Uint8Array::from(default_image),
+            }
         }
     }
 }
