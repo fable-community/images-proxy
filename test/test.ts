@@ -39,10 +39,10 @@ Deno.test('large portrait', async (test) => {
   const { format, image } = await proxy(kiara);
 
   const snapShotPath = new URL(
-    join(directory, `__snapshots__/${test.name}.png`),
+    join(directory, `__snapshots__/${test.name}.webp`),
   );
 
-  assertEquals(format, 'image/png');
+  assertEquals(format, 'image/webp');
 
   if (!existsSync(snapShotPath)) {
     await Deno.writeFile(snapShotPath, image);
@@ -52,13 +52,13 @@ Deno.test('large portrait', async (test) => {
 });
 
 Deno.test('large portrait 2', async (test) => {
-  const { format, image } = await proxy(fauna, undefined);
+  const { format, image } = await proxy(fauna);
 
   const snapShotPath = new URL(
-    join(directory, `__snapshots__/${test.name}.png`),
+    join(directory, `__snapshots__/${test.name}.webp`),
   );
 
-  assertEquals(format, 'image/png');
+  assertEquals(format, 'image/webp');
 
   if (!existsSync(snapShotPath)) {
     await Deno.writeFile(snapShotPath, image);
@@ -68,13 +68,13 @@ Deno.test('large portrait 2', async (test) => {
 });
 
 Deno.test('large square', async (test) => {
-  const { format, image } = await proxy(aqua, undefined);
+  const { format, image } = await proxy(aqua);
 
   const snapShotPath = new URL(
-    join(directory, `__snapshots__/${test.name}.png`),
+    join(directory, `__snapshots__/${test.name}.webp`),
   );
 
-  assertEquals(format, 'image/png');
+  assertEquals(format, 'image/webp');
 
   if (!existsSync(snapShotPath)) {
     await Deno.writeFile(snapShotPath, image);
@@ -87,10 +87,10 @@ Deno.test('preview portrait', async (test) => {
   const { format, image } = await proxy(kiara, 'preview');
 
   const snapShotPath = new URL(
-    join(directory, `__snapshots__/${test.name}.png`),
+    join(directory, `__snapshots__/${test.name}.webp`),
   );
 
-  assertEquals(format, 'image/png');
+  assertEquals(format, 'image/webp');
 
   if (!existsSync(snapShotPath)) {
     await Deno.writeFile(snapShotPath, image);
@@ -103,10 +103,10 @@ Deno.test('preview square', async (test) => {
   const { format, image } = await proxy(aqua, 'preview');
 
   const snapShotPath = new URL(
-    join(directory, `__snapshots__/${test.name}.png`),
+    join(directory, `__snapshots__/${test.name}.webp`),
   );
 
-  assertEquals(format, 'image/png');
+  assertEquals(format, 'image/webp');
 
   if (!existsSync(snapShotPath)) {
     await Deno.writeFile(snapShotPath, image);
@@ -119,10 +119,10 @@ Deno.test('ogimage', async (test) => {
   const { format, image } = await proxy(guraEmbed, undefined);
 
   const snapShotPath = new URL(
-    join(directory, `__snapshots__/${test.name}.jpeg`),
+    join(directory, `__snapshots__/${test.name}.webp`),
   );
 
-  assertEquals(format, 'image/jpeg');
+  assertEquals(format, 'image/webp');
 
   if (!existsSync(snapShotPath)) {
     await Deno.writeFile(snapShotPath, image);

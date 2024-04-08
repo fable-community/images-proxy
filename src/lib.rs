@@ -56,7 +56,7 @@ async fn fetch_image(url: &str) -> anyhow::Result<(DynamicImage, ImageFormat)> {
             let mut url = Url::from_str(&cap[1])?;
 
             // imgur has ?fb query that cuts images
-            // it's save to removed to retrieve the original uncut image
+            // it's safe to be removed to retrieve the original uncut image
             if url.host_str() == Some("i.imgur.com") {
                 url.set_query(None);
             }
@@ -193,42 +193,26 @@ async fn fetch_image_resize(
     Ok((img, format))
 }
 
-fn respond_with_image(image: DynamicImage, format: ImageFormat) -> anyhow::Result<Object> {
+fn respond_with_image(image: DynamicImage, _format: ImageFormat) -> anyhow::Result<Object> {
     let value = Object::new();
 
     let mut buf = std::io::Cursor::new(Vec::new());
 
     image
-        .write_to(
-            &mut buf,
-            match format {
-                // TODO webp encoding is not supported while targeting wasm
-                // all webp images will be convented to png
-                ImageFormat::WebP | ImageFormat::Png => image::ImageOutputFormat::Png,
-                ImageFormat::Jpeg => image::ImageOutputFormat::Jpeg(80),
-            },
-        )
+        .write_to(&mut buf, image::ImageFormat::WebP)
         .context("failed to encode resized image")?;
 
-    match format {
-        ImageFormat::WebP | ImageFormat::Png => js_sys::Reflect::set(
-            &value,
-            &JsValue::from("format"),
-            &JsValue::from("image/png"),
-        )
-        .unwrap(),
-        ImageFormat::Jpeg => js_sys::Reflect::set(
-            &value,
-            &JsValue::from("format"),
-            &JsValue::from("image/jpeg"),
-        )
-        .unwrap(),
-    };
+    js_sys::Reflect::set(
+        &value,
+        &JsValue::from("format"),
+        &JsValue::from("image/webp"),
+    )
+    .unwrap();
 
     js_sys::Reflect::set(
         &value,
         &JsValue::from("image"),
-        &Uint8Array::from(buf.get_ref().clone().as_ref()),
+        &Uint8Array::from(buf.get_ref().as_slice()),
     )
     .unwrap();
 
@@ -250,18 +234,19 @@ pub async fn proxy(url: &str, size: Option<String>) -> Object {
         Ok((img, f)) => respond_with_image(img, f).unwrap(),
         Err(_err) => {
             // console_log!("{:?}", _err);
+
             let value = Object::new();
 
             let default_image: &[u8] = match &size {
-                ImageSize::Preview => include_bytes!("../default/preview.png"),
-                ImageSize::Thumbnail => include_bytes!("../default/thumbnail.png"),
-                _ => include_bytes!("../default/medium.png"),
+                ImageSize::Preview => include_bytes!("../default/preview.webp"),
+                ImageSize::Thumbnail => include_bytes!("../default/thumbnail.webp"),
+                _ => include_bytes!("../default/medium.webp"),
             };
 
             js_sys::Reflect::set(
                 &value,
                 &JsValue::from("format"),
-                &JsValue::from("image/png"),
+                &JsValue::from("image/webp"),
             )
             .unwrap();
 
