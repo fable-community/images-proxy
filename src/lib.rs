@@ -1,6 +1,6 @@
 use anyhow::Context;
 use fast_image_resize as fr;
-use image::{DynamicImage, GenericImageView, RgbaImage};
+use image::{buffer::ConvertBuffer, DynamicImage, GenericImageView, RgbaImage};
 use js_sys::{Object, Uint8Array};
 use std::{cmp::max, num::NonZeroU32, str::FromStr};
 use url::Url;
@@ -14,7 +14,7 @@ enum ImageSize {
     Large,     // 450x635,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 enum ImageFormat {
     Png,
     Jpeg,
@@ -193,21 +193,48 @@ async fn fetch_image_resize(
     Ok((img, format))
 }
 
-fn respond_with_image(image: DynamicImage, _format: ImageFormat) -> anyhow::Result<Object> {
+fn respond_with_image(mut image: DynamicImage, format: ImageFormat) -> anyhow::Result<Object> {
     let value = Object::new();
 
     let mut buf = std::io::Cursor::new(Vec::new());
 
+    if format == ImageFormat::Jpeg {
+        image = match image {
+            DynamicImage::ImageRgba8(img) => DynamicImage::ImageRgb8(img.convert()),
+            _ => image,
+        };
+    }
     image
-        .write_to(&mut buf, image::ImageFormat::WebP)
+        .write_to(
+            &mut buf,
+            match format {
+                ImageFormat::WebP => image::ImageFormat::WebP,
+                ImageFormat::Png => image::ImageFormat::Png,
+                ImageFormat::Jpeg => image::ImageFormat::Jpeg,
+            },
+        )
         .context("failed to encode resized image")?;
 
-    js_sys::Reflect::set(
-        &value,
-        &JsValue::from("format"),
-        &JsValue::from("image/webp"),
-    )
-    .unwrap();
+    match format {
+        ImageFormat::WebP => js_sys::Reflect::set(
+            &value,
+            &JsValue::from("format"),
+            &JsValue::from("image/webp"),
+        )
+        .unwrap(),
+        ImageFormat::Png => js_sys::Reflect::set(
+            &value,
+            &JsValue::from("format"),
+            &JsValue::from("image/png"),
+        )
+        .unwrap(),
+        ImageFormat::Jpeg => js_sys::Reflect::set(
+            &value,
+            &JsValue::from("format"),
+            &JsValue::from("image/jpeg"),
+        )
+        .unwrap(),
+    };
 
     js_sys::Reflect::set(
         &value,

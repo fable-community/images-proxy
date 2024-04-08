@@ -361,7 +361,7 @@ const imports = {
             const ret = getObject(arg0).text();
             return addHeapObject(ret);
         }, arguments) },
-        __wbg_log_e8801f9c32262774: function(arg0, arg1) {
+        __wbg_log_5d24b368a4f485cf: function(arg0, arg1) {
             console.log(getStringFromWasm0(arg0, arg1));
         },
         __wbg_arrayBuffer_29931d52c7206b02: function() { return handleError(function (arg0) {
@@ -500,8 +500,8 @@ const imports = {
             const ret = new Request(getStringFromWasm0(arg0, arg1), getObject(arg2));
             return addHeapObject(ret);
         }, arguments) },
-        __wbindgen_closure_wrapper2356: function(arg0, arg1, arg2) {
-            const ret = makeMutClosure(arg0, arg1, 152, __wbg_adapter_24);
+        __wbindgen_closure_wrapper2419: function(arg0, arg1, arg2) {
+            const ret = makeMutClosure(arg0, arg1, 157, __wbg_adapter_24);
             return addHeapObject(ret);
         },
     },
