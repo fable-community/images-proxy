@@ -1,8 +1,9 @@
 {
   "name": "@fable-community/images-proxy",
-  "version": "0.1.5",
+  "version": "0.2.0",
   "description": "Used in Fable to resize any images on the fly",
   "main": "build/images_proxy.js",
+  "types": "build/images_proxy.d.ts",
   "files": [
     "build/images_proxy.js",
     "build/images_proxy.d.ts",
@@ -10,15 +11,24 @@
     "README.md",
     "LICENSE"
   ],
+  "scripts": {
+    "build": "wasm-pack build --target bundler --out-dir build",
+    "test": "NODE_OPTIONS=--experimental-vm-modules jest"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/fable-community/images-proxy.git"
   },
-  "types": "build/images_proxy.d.ts",
   "author": "",
   "license": "MIT",
   "bugs": {
     "url": "https://github.com/fable-community/images-proxy/issues"
   },
-  "homepage": "https://github.com/fable-community/images-proxy#readme"
+  "homepage": "https://github.com/fable-community/images-proxy#readme",
+  "devDependencies": {
+    "jest": "^29.5.0",
+    "pixelmatch": "^5.3.0",
+    "sharp": "^0.33.5",
+    "wasm-pack": "^0.13.1"
+  }
 }

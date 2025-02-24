@@ -1,19 +1,9 @@
 /* tslint:disable */
 /* eslint-disable */
-/**
-* @param {string} url
-* @param {string | undefined} [size]
-* @returns {Promise<Image>}
-*/
-export function proxy(url: string, size?: string): Promise<Image>;
-/**
-*/
+export function proxy(url: string, size?: string | null): Promise<Image>;
 export class Image {
+  private constructor();
   free(): void;
-/**
-*/
   format: string;
-/**
-*/
   image: Uint8Array;
 }

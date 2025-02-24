@@ -6,22 +6,15 @@
   },
   "[typescript]": {
     "editor.tabSize": 2,
-    "editor.defaultFormatter": "denoland.vscode-deno"
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
   },
-  "deno.lint": true,
-  "deno.enable": true,
-  "deno.unstable": false,
-  "deno.config": "deno.json",
   "explorer.fileNesting.enabled": true,
   "explorer.fileNesting.expand": false,
   "files.exclude": {
     ".git": true,
-    "build": true,
-    "target": true,
   },
   "explorer.fileNesting.patterns": {
     "README.md": "LICENSE,.gitignore",
     "Cargo.toml": "Cargo.lock",
-    "deno.json": "deno.lock"
   }
 }
