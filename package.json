@@ -1,13 +1,15 @@
 {
   "name": "@fable-community/images-proxy",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Used in Fable to resize any images on the fly",
   "main": "build/images_proxy.js",
   "types": "build/images_proxy.d.ts",
   "files": [
     "build/images_proxy.js",
+    "build/images_proxy_bg.js",
     "build/images_proxy.d.ts",
     "build/images_proxy_bg.wasm",
+    "build/images_proxy_bg.wasm.d.ts",
     "README.md",
     "LICENSE"
   ],
