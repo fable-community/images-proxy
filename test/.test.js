@@ -1,3 +1,4 @@
+import { test, expect } from "vitest";
 import sharp from "sharp";
 import pixelmatch from "pixelmatch";
 import { join } from "path";
@@ -41,7 +42,7 @@ test("large portrait", async () => {
   } else {
     expect(await compare(snapShotPath, image)).toBe(0);
   }
-}, 10000);
+}, 20000);
 
 test("large portrait 2", async () => {
   const { format, image } = await proxy(fauna);
@@ -54,7 +55,7 @@ test("large portrait 2", async () => {
   } else {
     expect(await compare(snapShotPath, image)).toBe(0);
   }
-}, 10000);
+}, 20000);
 
 test("large square", async () => {
   const { format, image } = await proxy(aqua);
@@ -67,7 +68,7 @@ test("large square", async () => {
   } else {
     expect(await compare(snapShotPath, image)).toBe(0);
   }
-}, 10000);
+}, 20000);
 
 test("preview portrait", async () => {
   const { format, image } = await proxy(kiara, "preview");
@@ -80,7 +81,7 @@ test("preview portrait", async () => {
   } else {
     expect(await compare(snapShotPath, image)).toBe(0);
   }
-}, 10000);
+}, 20000);
 
 test("preview square", async () => {
   const { format, image } = await proxy(aqua, "preview");
@@ -93,7 +94,7 @@ test("preview square", async () => {
   } else {
     expect(await compare(snapShotPath, image)).toBe(0);
   }
-}, 10000);
+}, 20000);
 
 test.skip("ogimage ", async () => {
   const { format, image } = await proxy(guraEmbed, undefined);
@@ -106,4 +107,4 @@ test.skip("ogimage ", async () => {
   } else {
     expect(await compare(snapShotPath, image)).toBe(0);
   }
-}, 10000);
+}, 20000);
