@@ -1,9 +1,11 @@
 # images-proxy
 
-[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/fable-community/images-proxy)
+```bash
+npm run build
+```
 
 ```ts
-import * as images_proxy from 'https://raw.githubusercontent.com/fable-community/images-proxy/main/mod.ts'
+import * as images_proxy from '@fable-community/images-proxy'
 ```
 
 This library is used in [Fable](https://github.com/ker0olos/fable) to resize all
